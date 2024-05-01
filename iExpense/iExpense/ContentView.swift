@@ -1,89 +1,119 @@
 import SwiftUI
-import Observation
 
-struct User: Codable {
-    var firstName: String
-    var lastName: String
+struct ExpenseItem: Identifiable, Codable {
+    var id = UUID()
+    let name: String
+    let type: String
+    let amount: Double
+}
+
+@Observable
+class Expenses {
+    var items = [ExpenseItem]() {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(items) {
+                UserDefaults.standard.set(encoded, forKey: "Items")
+            }
+        }
+    }
+    
+    init() {
+        if let savedItems = UserDefaults.standard.data(forKey: "Items") {
+            if let decoded = try? JSONDecoder().decode([ExpenseItem].self, from: savedItems) {
+                items = decoded
+                
+                return
+            }
+        }
+        
+        items = []
+    }
 }
 
 struct ContentView: View {
-    @State private var user: User
-    @State private var isShowSheet = false
-    @State private var numbers = [Int]();
-    @AppStorage("currentIndex") private var currentIndex = 0;
+    @State private var expenses = Expenses()
+    @State private var isShowAddExpenseView = false
     
-    init(user: User = User(firstName: "Justin", lastName: "Bieber"), isShowSheet: Bool = false, numbers: [Int] = [Int](), currentIndex: Int = 0) {
-        let decoder = JSONDecoder()
-        
-        if let data = UserDefaults.standard.data(forKey: "user") {
-            if let decodedData = try? decoder.decode(User.self, from: data) {
-                self.user = decodedData
-                print(decodedData)
-            } else {
-                self.user = user
-            }
-        } else {
-            self.user = user
+    var personalExpenses: [ExpenseItem] {
+        expenses.items.filter{ item in
+            return item.type == "Personal"
         }
-        self.isShowSheet = isShowSheet
-        self.numbers = numbers
-        self.currentIndex = currentIndex
     }
     
-    func removeRows(at offsets: IndexSet) {
-        numbers.remove(atOffsets: offsets)
+    var businessExpenses: [ExpenseItem] {
+        expenses.items.filter{ item in
+            return item.type == "Business"
+        }
+    }
+    
+    func removeExpenseByIds(ids: [UUID]) {
+        expenses.items.removeAll { item in
+            ids.contains(item.id)
+        }
     }
     
     var body: some View {
         NavigationStack {
             VStack {
                 List {
-                    ForEach(numbers, id: \.self) {
-                        Text("Row \($0)")
+                    ForEach(personalExpenses) { item in
+                        HStack {
+                            VStack {
+                                Text(item.type)
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(item.name)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            Spacer()
+                            Text(item.amount, format: .currency(code: "HKD"))
+                        }
                     }
-                    .onDelete(perform: removeRows)
-                }
-                
-                TextField("First name", text: $user.firstName)
-                TextField("Last name", text: $user.lastName)
-                
-                Button("Add number") {
-                    numbers.append(currentIndex)
-                    currentIndex += 1
-                    UserDefaults.standard.set(currentIndex, forKey: "currentIndex")
-                }
-                Button("Show") {
-                    isShowSheet.toggle()
-                }
-                Button("Save user") {
-                    let encoder = JSONEncoder()
-                    
-                    if let data = try? encoder.encode(user) {
-                        UserDefaults.standard.set(data, forKey: "user")
+                    .onDelete { index in
+                        let ids = index.map {
+                            personalExpenses[$0].id
+                        }
+                        
+                        removeExpenseByIds(ids: ids)
                     }
                 }
+                .navigationTitle("Personal expense")
+                
+                List {
+                    ForEach(expenses.items.filter{ item in
+                        return item.type == "Business"
+                    }) { item in
+                        HStack {
+                            VStack {
+                                Text(item.type)
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Text(item.name)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            Spacer()
+                            Text(item.amount, format: .currency(code: "HKD"))
+                        }
+                    }
+                    .onDelete { index in
+                        let ids = index.map {
+                            businessExpenses[$0].id
+                        }
+                        
+                        removeExpenseByIds(ids: ids)
+                    }
+                }
+                .navigationTitle("Business expense")
             }
-            .padding()
-            .sheet(isPresented: $isShowSheet) {
-                SecondView(title: "Foo")
-            }
+            .navigationTitle("iExpense")
             .toolbar {
-                EditButton()
+                Button("Add Expense", systemImage: "plus") {
+                    isShowAddExpenseView = true
+                }
             }
-        }
-    }
-}
-
-struct SecondView: View {
-    let title: String
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        VStack {
-            Text("Second view \(title)")
-            Button("Dismiss view") {
-                dismiss()
-            }
+            .sheet(isPresented: $isShowAddExpenseView, content: {
+                AddView(expenses: expenses)
+            })
         }
     }
 }
