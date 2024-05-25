@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ExpenseItem: Identifiable, Codable {
+struct ExpenseItem: Identifiable, Codable, Hashable {
     var id = UUID()
     let name: String
     let type: String
@@ -33,6 +33,7 @@ class Expenses {
 struct ContentView: View {
     @State private var expenses = Expenses()
     @State private var isShowAddExpenseView = false
+    @State private var path = NavigationPath()
     
     var personalExpenses: [ExpenseItem] {
         expenses.items.filter{ item in
@@ -53,7 +54,7 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             VStack {
                 List {
                     ForEach(personalExpenses) { item in
@@ -108,12 +109,12 @@ struct ContentView: View {
             .navigationTitle("iExpense")
             .toolbar {
                 Button("Add Expense", systemImage: "plus") {
-                    isShowAddExpenseView = true
+                    path.append("add_expense")
                 }
             }
-            .sheet(isPresented: $isShowAddExpenseView, content: {
+            .navigationDestination(for: String.self) { _ in
                 AddView(expenses: expenses)
-            })
+            }
         }
     }
 }

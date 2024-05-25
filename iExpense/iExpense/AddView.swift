@@ -17,27 +17,25 @@ struct AddView: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationStack {
-            Form {
-                TextField("Name", text: $name)
-                
-                Picker("Type", selection: $type) {
-                    ForEach(TYPES, id: \.self) {
-                        Text($0)
-                    }
+        Form {
+            TextField("Name", text: $name)
+            
+            Picker("Type", selection: $type) {
+                ForEach(TYPES, id: \.self) {
+                    Text($0)
                 }
-                
-                TextField("Amount", value: $amount, format: .currency(code: "HKD"))
-                    .keyboardType(.decimalPad)
             }
-            .navigationTitle("Add new expense")
-            .toolbar {
-                Button("Save") {
-                    let expense = ExpenseItem(name: name, type: type, amount: amount)
-                    
-                    expenses.items.append(expense)
-                    dismiss()
-                }
+            
+            TextField("Amount", value: $amount, format: .currency(code: "HKD"))
+                .keyboardType(.decimalPad)
+        }
+        .navigationTitle("Add new expense")
+        .toolbar {
+            Button("Save") {
+                let expense = ExpenseItem(name: name, type: type, amount: amount)
+                
+                expenses.items.append(expense)
+                dismiss()
             }
         }
     }
